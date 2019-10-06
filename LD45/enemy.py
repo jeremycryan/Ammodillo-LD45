@@ -21,13 +21,13 @@ class Enemy(object):
         self.deccel = 0.05
         self.velocity = [0, 0]
         self.accel = 10
-        self.max_speed = 14
+        self.max_speed = 15
 
         self.bullet_period = 1
         self.since_last_bullet = -random.random() * self.bullet_period
 
         self.bullet_type = BasicBullet
-        self.bullet_speed = 15
+        self.bullet_speed = 14
         self.recoil_speed = 5
         self.hit_radius = (self.width/self.game.c.TILE_SIZE)/2
 
@@ -236,7 +236,7 @@ class Chick(Enemy):
         self.hit_radius = (self.width/self.game.c.TILE_SIZE)*0.3
 
         self.bullet_period = 2
-        self.since_last_bullet = -random.random() * self.bullet_period
+        self.since_last_bullet = random.random() * self.bullet_period - self.bullet_period/2
 
         self.x, self.y = pos
         self.accel = 8
@@ -280,3 +280,133 @@ class Chick(Enemy):
         else:
             for i in range(2):
                 Feather(self.game, [self.x, self.y])
+
+class KingMouse(Enemy):
+
+    def __init__(self, game):
+        super().__init__(game)
+        self.game = game
+
+        self.x = 0
+        self.y = -15.75
+
+        self.sprite = Sprite(fps=8)
+        self.sprite.add_animation({"Idle": SpriteSheet("king_mouse.png", (1, 1), 1)})
+        self.sprite.start_animation("Idle")
+        self.width = self.sprite.get_good_frame().get_width()
+
+        self.hp = 30
+        self.active = False
+
+        self.accel = 9
+        self.max_speed = 15
+        self.firing_max_speed = 0.5
+        self.original_max_speed = self.max_speed
+
+        self.target_x = 0
+        self.target_y = 0
+
+        self.hit_radius = 1.25
+
+        self.bullet_period = 0.1
+        #self.bullet_speed = 15
+
+        self.follow_player_mode = 0
+        self.follow_position_mode = 1
+        self.mode = self.follow_player_mode
+
+        self.clip = 100
+        self.clip_size = 100
+        self.since_last_bullet = -2
+        self.sprink_angle = 0
+        self.sprink_angle_increase = math.pi * 2 / 32
+
+        self.sprinkler_move = 0
+        self.pulsar_move = 1
+        self.next_move = self.random_move()
+
+    def random_move(self):
+        self.mode = self.follow_player_mode
+        self.clip = 100
+        return random.choice([self.sprinkler_move, self.pulsar_move])
+
+    def check_bullet_behavior(self):
+        if self.next_move == self.sprinkler_move:
+            if self.clip and self.since_last_bullet > 0.06:
+                self.shoot_bullet_in_direction(self.sprink_angle)
+                self.shoot_bullet_in_direction(self.sprink_angle + math.pi)
+                if self.clip > 50:
+                    self.sprink_angle += self.sprink_angle_increase
+                else:
+                    self.sprink_angle -= self.sprink_angle_increase
+                self.clip -= 1
+            elif not self.clip:
+                self.since_last_bullet = -3
+                self.next_move = self.random_move()
+        elif self.next_move == self.pulsar_move:
+            self.mode = self.follow_position_mode
+            self.target_x, self.target_y = (0, 0)
+            if self.clip > 0 and self.since_last_bullet > 0.8:
+                for i in range(48):
+                    self.since_last_bullet = 0
+                    self.shoot_bullet_in_direction(i/48 * math.pi * 2)
+                self.clip -= 40
+            elif self.clip <= 0:
+                self.since_last_bullet = -3
+                self.next_move = self.random_move()
+
+    def shoot_bullet_in_direction(self, angle):
+        self.since_last_bullet = 0
+        velocity = angle_vec(angle)
+        normalize(velocity, self.bullet_speed)
+        push_vec = velocity[:]
+        normalize(push_vec, -self.recoil_speed)
+        self.push(*push_vec)
+        new_bullet = self.bullet_type(self.game, (self.x, self.y), velocity)
+        self.game.bullets.add(self.bullet_type(self.game, (self.x, self.y), velocity))
+        BulletSpawn(self.game, (new_bullet.x, new_bullet.y))
+
+    def activate(self):
+        self.active = True
+
+    def update(self, dt):
+        self.sprite.update(dt)
+        if 0 <= self.since_last_bullet < 0.25:
+            self.max_speed = self.firing_max_speed
+        else:
+            self.max_speed = self.original_max_speed
+
+        if not self.active:
+            self.move(*self.velocity, dt)
+            return
+
+        self.since_last_bullet += dt
+        self.deccelerate(dt)
+        self.check_bullet_behavior()
+        self.move_toward_player(dt)
+        self.move_toward_position(dt)
+        self.check_arena_bounds()
+        self.move(*self.velocity, dt)
+        self.check_bullet_collisions()
+        self.check_enemy_collisions()
+
+    def move_toward_position(self, dt):
+        if self.mode == self.follow_position_mode:
+            diff = list_subtraction([self.target_x, self.target_y], [self.x, self.y])
+            normalize(diff, self.accel*dt)
+            self.velocity = list_addition(self.velocity, diff)
+            if magnitude(self.velocity) > self.max_speed:
+                normalize(self.velocity, self.max_speed)
+
+    def move_toward_player(self, dt):
+        if self.mode == self.follow_player_mode:
+            super().move_toward_player(dt)
+
+    def draw(self):
+        camera = self.game.camera
+        scale = camera.scale
+        width = int(self.width * scale)
+        x = int((self.x - camera.x) * scale * self.game.c.TILE_SIZE - width/2 + self.game.c.WINDOW_WIDTH//2)
+        y = int((self.y - camera.y) * scale * self.game.c.TILE_SIZE - width/2 + self.game.c.WINDOW_HEIGHT//2)
+        scaled = pygame.transform.scale(self.sprite.get_good_frame(), (width, width))
+        self.game.screen.blit(scaled, (x, y))

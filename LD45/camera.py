@@ -9,14 +9,18 @@ class Camera(object):
         self.target_scale = 1.0
         self.true_x = 0
         self.true_y = 0
+        self.target_x = 0
+        self.target_y = 0
         self.x = 0
         self.y = 0
         self.speed = 1.0
         self.tightness = 0.7
 
         self.since_shake = 0
-        self.shake_freq = 28
+        self.shake_freq = 36
         self.shake_mag = 0
+
+        self.focus_mode = False
 
     def mouse_to_frame(self, mpos):
         ppt = self.game.c.TILE_SIZE * self.scale
@@ -31,16 +35,19 @@ class Camera(object):
 
     def update(self, dt):
         self.since_shake += dt
+        self.shake_mag *= 0.1**dt
         self.shake_mag = max(0, self.shake_mag - 0.8*dt)
 
-        mx, my = self.mpos_frame()
-        px, py = self.game.player.x, self.game.player.y
-        tightness = self.tightness
-        tx = (mx*(1 - tightness) + px*tightness)
-        ty = (my*(1 - tightness) + py*tightness)
+        if not self.focus_mode:
 
-        dx = tx - self.true_x
-        dy = ty - self.true_y
+            mx, my = self.mpos_frame()
+            px, py = self.game.player.x, self.game.player.y
+            tightness = self.tightness
+            self.target_x = (mx*(1 - tightness) + px*tightness)
+            self.target_y = (my*(1 - tightness) + py*tightness)
+
+        dx = self.target_x - self.true_x
+        dy = self.target_y - self.true_y
 
         p = 2
         self.true_x += p * dx * dt
@@ -66,3 +73,6 @@ class Camera(object):
 
     def is_zoomed(self):
         return abs(self.scale - 1.0) < 0.05
+
+    def set_target_pos(self, pos):
+        self.target_x, self.target_y = pos
