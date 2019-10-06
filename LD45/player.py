@@ -3,7 +3,7 @@ import math
 from helpers import normalize, list_subtraction, magnitude, dist_between
 from sprite_tools import SpriteSheet, Sprite
 from splash import Splash, BulletSpawn
-from particle import Feather
+from particle import Feather, PlayerBit
 
 
 class Player(object):
@@ -23,6 +23,20 @@ class Player(object):
         self.max_speed = 7
         self.x = 0
         self.y = 0
+
+        self.pick_up_ammo_sound = pygame.mixer.Sound("pick_up_ammo.wav")
+        self.pick_up_ammo_sound.set_volume(0.15)
+        self.sound_queue = []
+        self.sound_lookup = {"pick_up_ammo": self.pick_up_ammo_sound}
+        self.since_last_pop = 100
+        self.dodge_sound = pygame.mixer.Sound("dash.wav")
+        self.dodge_sound.set_volume(0.03)
+        self.get_hit_sound = pygame.mixer.Sound("get_hit.wav")
+        self.get_hit_sound.set_volume(0.15)
+        self.fire_sound = pygame.mixer.Sound("fire.wav")
+        self.fire_sound.set_volume(0.5)
+        self.death_sound = pygame.mixer.Sound("death.wav")
+        self.death_sound.set_volume(0.3)
 
         self.dodging = False
         self.dodge_sprite = pygame.Surface((32, 32))
@@ -76,6 +90,7 @@ class Player(object):
         self.hit_radius = self.default_hit_radius
         self.dodge_hit_radius = 0.65
 
+
         self.hp = 3
         self.max_hp = 3
         self.full_heart = pygame.image.load("full_heart.png")
@@ -89,10 +104,18 @@ class Player(object):
 
         self.hit_by_bullet_sound = pygame.mixer.Sound("hit.wav")
 
+    def update_sound_queue(self, dt):
+        self.since_last_pop += dt
+        if self.since_last_pop > 0.06 and self.sound_queue:
+            self.sound_queue.pop().play()
+            self.since_last_pop = 0
+
     def die(self):
-        for i in range(20):
+        self.death_sound.play()
+        self.game.fight_music.set_volume(0.1)
+        for i in range(25):
             self.dead = True
-            Feather(self.game, [self.x, self.y])
+            PlayerBit(self.game, [self.x, self.y])
 
     def update(self, dt):
         if self.hp <= 0 and not self.dead:
@@ -111,12 +134,14 @@ class Player(object):
         self.check_enemy_collisions()
         self.update_animation_mode(dt)
         self.update_velocity_if_dodging()
+        self.update_sound_queue(dt)
 
 
     def dodge(self):
         if self.since_last_dodge < self.dodge_cooldown or self.stunned():
             return
         if self.velocity[0]**2 + self.velocity[1]**2 > self.min_dodge_threshold**2:
+            self.dodge_sound.play()
             self.sprite.fps = 18
             self.dodging = True
             self.since_last_dodge = 0
@@ -288,6 +313,7 @@ class Player(object):
             for item in ceb:
                 if len(self.bullets_collected) < self.pocket_size:
                     self.bullets_collected.append(item)
+                    self.sound_queue.append(self.pick_up_ammo_sound)
                     item.friendly = True
                     BulletSpawn(self.game, [item.x, item.y])
                 else:
@@ -304,8 +330,10 @@ class Player(object):
             if dist_between(enemy, self) < self.hit_radius + enemy.hit_radius:
                 self.get_hit_by_enemy(enemy)
 
+
     def get_hit_by_enemy(self, enemy):
         if not self.blinking and not self.dodging and not self.stunned():
+            self.get_hit_sound.play()
             direction = list_subtraction([self.x, self.y], [enemy.x, enemy.y])
             normalize(direction, 20)
             self.push(*direction)
@@ -320,7 +348,7 @@ class Player(object):
             self.game.camera.shake(0.25)
 
     def get_hit_by(self, bullet):
-        self.hit_by_bullet_sound.play()
+        self.get_hit_sound.play()
         self.blinking = True
         self.hp -= 1
         self.since_blink_start = 0
@@ -334,6 +362,7 @@ class Player(object):
 
     def shoot_bullet(self):
         if self.bullets_collected and self.since_last_bullet > self.bullet_cooldown:
+            self.fire_sound.play()
             direction = list_subtraction(self.game.camera.mpos_frame(), [self.x, self.y])
             normalize(direction, 25)
             new_bullet = self.bullets_collected.pop()

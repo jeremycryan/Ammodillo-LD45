@@ -6,7 +6,7 @@ from bullet import BasicBullet
 from splash import Splash
 from sprite_tools import Sprite, SpriteSheet
 from splash import BulletSpawn
-from particle import Feather
+from particle import Feather, Confettus, YouWin
 
 class Enemy(object):
 
@@ -17,6 +17,9 @@ class Enemy(object):
         self.y = 5
         self.sprite = pygame.image.load(sprite_path)
         self.width = self.sprite.get_width()
+
+        self.death_sound = pygame.mixer.Sound("bird.wav")
+        self.death_sound.set_volume(0.25)
 
         self.deccel = 0.05
         self.velocity = [0, 0]
@@ -30,6 +33,9 @@ class Enemy(object):
         self.bullet_speed = 14
         self.recoil_speed = 5
         self.hit_radius = (self.width/self.game.c.TILE_SIZE)/2
+
+        self.get_hit_sound = pygame.mixer.Sound("enemy_hit.wav")
+        self.get_hit_sound.set_volume(0.15)
 
         self.hp = 1
 
@@ -117,6 +123,7 @@ class Enemy(object):
         return ceb
 
     def get_hit_by(self, bullet):
+        self.get_hit_sound.play()
         self.hp -= bullet.damage
         if self.hp <= 0:
             self.game.enemies_to_destroy.add(self)
@@ -213,10 +220,11 @@ class Bursty(Enemy):
     def get_hit_by(self, bullet):
         super().get_hit_by(bullet)
         if self.hp <= 0:
+            self.death_sound.play()
             for i in range(20):
                 Feather(self.game, [self.x, self.y])
         else:
-            for i in range(2):
+            for i in range(3):
                 Feather(self.game, [self.x, self.y])
 
 
@@ -248,6 +256,9 @@ class Chick(Enemy):
         self.shadow.set_alpha(80)
         self.shadow.set_colorkey((255, 0, 0))
 
+        self.death_sound = pygame.mixer.Sound("chick.wav")
+        self.death_sound.set_volume(0.25)
+
     def draw(self):
         camera = self.game.camera
         scale = camera.scale
@@ -275,10 +286,11 @@ class Chick(Enemy):
     def get_hit_by(self, bullet):
         super().get_hit_by(bullet)
         if self.hp <= 0:
+            self.death_sound.play()
             for i in range(10):
                 Feather(self.game, [self.x, self.y])
         else:
-            for i in range(2):
+            for i in range(3):
                 Feather(self.game, [self.x, self.y])
 
 class KingMouse(Enemy):
@@ -410,3 +422,11 @@ class KingMouse(Enemy):
         y = int((self.y - camera.y) * scale * self.game.c.TILE_SIZE - width/2 + self.game.c.WINDOW_HEIGHT//2)
         scaled = pygame.transform.scale(self.sprite.get_good_frame(), (width, width))
         self.game.screen.blit(scaled, (x, y))
+
+    def get_hit_by(self, bullet):
+        super().get_hit_by(bullet)
+        if self.hp <= 0:
+            #self.death_sound.play()
+            for i in range(70):
+                Confettus(self.game, [self.x, self.y])
+            YouWin(self.game, [self.x, self.y])

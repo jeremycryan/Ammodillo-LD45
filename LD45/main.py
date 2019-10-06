@@ -15,8 +15,23 @@ import math
 class Game(object):
 
     def __init__(self):
-        pygame.mixer.init(22100, -16, 2, 64)
+        pygame.mixer.init(buffer = 128)
         pygame.init()
+
+        self.menu_music = pygame.mixer.Sound("menu.wav")
+        self.menu_music.set_volume(0.25)
+        self.fight_music = pygame.mixer.Sound("fight.wav")
+        self.fight_music.set_volume(0.5)
+        self.king_land_sound = pygame.mixer.Sound("king_land.wav")
+        self.king_land_sound.set_volume(0.28)
+        self.logo = pygame.image.load("ammodillo.png")
+        self.press_enter = pygame.image.load("press_enter.png")
+        self.enter_game_sound = pygame.mixer.Sound("enter_game.wav")
+        self.enter_game_sound.set_volume(0.3)
+        self.game_over = pygame.image.load("game_over.png")
+        self.game_over = pygame.transform.scale(self.game_over, (self.game_over.get_width()*3//4, self.game_over.get_height()*3//4))
+        self.reset_sound = pygame.mixer.Sound("reset_sound.wav")
+        self.reset_sound.set_volume(0.3)
 
         self.c = Constants()
 
@@ -35,6 +50,8 @@ class Game(object):
 
     def title(self):
         self.reset_things()
+        self.fight_music.fadeout(1000)
+        self.menu_music.play(-1, fade_ms=1000)
 
         self.camera.focus_mode = True
         start_y = -12
@@ -55,6 +72,7 @@ class Game(object):
         then = time.time()
         time.sleep(0.001)
 
+
         while True:
 
             now = time.time()
@@ -68,12 +86,13 @@ class Game(object):
             for event in events:
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_RETURN:
+                        self.enter_game_sound.play()
                         end_loop = True
 
             if end_loop:
                 break
 
-            yoff = math.sin(time.time() * 0.85) * 1.0
+            yoff = math.sin(time.time() * 0.85) * 0.8
             self.camera.target_y = start_y + yoff
             self.camera.update(dt)
 
@@ -84,11 +103,18 @@ class Game(object):
             for king in self.king:
                 king.update(dt)
                 king.draw()
+            yoff = math.sin((time.time() - 1.2) * 0.8) * 12
+            self.logo_y = self.c.WINDOW_HEIGHT - 210 + yoff
+            self.screen.blit(self.logo, ((self.c.WINDOW_WIDTH - self.logo.get_width())//2 + int(100 * self.camera.x),
+                                         self.logo_y))
+            if time.time() % 1 < 0.5:
+                self.screen.blit(self.press_enter, ((self.c.WINDOW_WIDTH - self.press_enter.get_width())//2, self.c.WINDOW_HEIGHT - 50))
             self.screen.blit(shady_boi, (0, 0))
             pygame.display.flip()
 
 
     def reset_things(self):
+        self.boss_fight_animation = False
         self.enemies = set()
         self.bullets = set()
         self.particles = set()
@@ -104,22 +130,24 @@ class Game(object):
 
         self.wave_spawn_gap = 5
         self.last_hype = 0
-        self.king.add(KingMouse(self))
+        king = KingMouse(self)
+        king.hp = 1
+        self.king.add(king)
 
-        # self.waves = [[Chick(self, pos=self.c.CENTER_ARCH)]]
+        self.waves = []
 
-        self.waves = [[Chick(self, pos=self.c.CENTER_ARCH)],
-
-                      [Chick(self, pos=self.c.CENTER_ARCH),
-                       Chick(self, pos=self.c.LEFT_ARCH),
-                       Chick(self, pos=self.c.RIGHT_ARCH)],
-
-                      [Bursty(self, pos=self.c.CENTER_ARCH)],
-
-                      [Chick(self, pos=(self.c.CENTER_ARCH[0], self.c.CENTER_ARCH[1] + 1)),
-                       Chick(self, pos=self.c.LEFT_ARCH),
-                       Chick(self, pos=self.c.RIGHT_ARCH),
-                       Bursty(self, pos=(self.c.CENTER_ARCH[0], self.c.CENTER_ARCH[1] - 1))]]
+        # self.waves = [[Chick(self, pos=self.c.CENTER_ARCH)],
+        #
+        #               [Chick(self, pos=self.c.CENTER_ARCH),
+        #                Chick(self, pos=self.c.LEFT_ARCH),
+        #                Chick(self, pos=self.c.RIGHT_ARCH)],
+        #
+        #               [Bursty(self, pos=self.c.CENTER_ARCH)],
+        #
+        #               [Chick(self, pos=(self.c.CENTER_ARCH[0], self.c.CENTER_ARCH[1] + 1)),
+        #                Chick(self, pos=self.c.LEFT_ARCH),
+        #                Chick(self, pos=self.c.RIGHT_ARCH),
+        #                Bursty(self, pos=(self.c.CENTER_ARCH[0], self.c.CENTER_ARCH[1] - 1))]]
 
         self.shade = pygame.Surface(self.c.WINDOW_SIZE).convert()
         self.shade.fill((0, 0, 0))
@@ -142,6 +170,9 @@ class Game(object):
         then = time.time()
         time.sleep(0.001)
 
+        self.menu_music.fadeout(1000)
+        self.fight_music.play(-1, fade_ms = 2000)
+
         self.camera.focus_mode = False
         self.time_without_enemies = 0
 
@@ -151,6 +182,7 @@ class Game(object):
         self.splashes_to_destroy = set()
 
         fpss = [0] * 100
+        self.cam_start_pos = self.camera.y
 
         while True:
 
@@ -167,11 +199,13 @@ class Game(object):
             # Do stuff
             dt = self.camera.update(dt)
             self.check_global_events(dt)
-            if self.reset_flag and self.shade_alpha == 255:
+            if self.reset_flag and self.shade_alpha >= 250:
                 self.reset_flag = False
                 break
             self.player.update(dt)
             self.update_shade(dt)
+
+            self.logo_y -= dt * 300
 
             # Draw stuff
             self.map.draw()
@@ -200,11 +234,16 @@ class Game(object):
             for splash in self.splashes:
                 splash.update(dt)
                 splash.draw()
+            if self.logo_y > -200:
+                self.screen.blit(self.logo,
+                                 ((self.c.WINDOW_WIDTH - self.logo.get_width()) // 2 - int(15 * self.camera.x),
+                                  self.logo_y - (15 * (self.camera.y - self.cam_start_pos))))
             if self.shade_alpha:
                 self.screen.blit(self.shade, (0, 0))
             pygame.display.flip()
 
     def boss_fight(self):
+        self.boss_fight_animation = True
         self.boss_fight_triggered = True
 
         king = list(self.king)[0]
@@ -264,6 +303,7 @@ class Game(object):
                 king.y = -0.5
                 king.velocity = [0, 0]
                 self.camera.shake(1.2)
+                self.king_land_sound.play()
                 break
 
         timer = 0
@@ -278,6 +318,8 @@ class Game(object):
                 king.activate()
                 break
 
+        self.boss_fight_animation = False
+
         self.king = set()
         self.enemies = set([king])
         while True:
@@ -287,6 +329,12 @@ class Game(object):
 
             timer += dt
             self.update_and_draw_things(dt)
+
+            if self.reset_flag and self.shade_alpha > 250:
+                break
+
+
+
 
     def hype(self):
         return self.last_hype < 0
@@ -313,8 +361,11 @@ class Game(object):
             if event.type == pygame.KEYDOWN:
                 if event.key == self.player.dodge_key:
                     self.player.dodge()
-                if event.key == pygame.K_r or event.key == pygame.K_RETURN:
+                if event.key == pygame.K_r or event.key == pygame.K_RETURN and not self.boss_fight_animation:
                     self.reset()
+                    self.reset_sound.play()
+
+        self.update_shade(dt)
                 # if event.key == pygame.K_l:
                 #     print("Mouse position: " + str(self.camera.mouse_to_frame(pygame.mouse.get_pos())))
 
@@ -325,7 +376,7 @@ class Game(object):
             if len(self.waves):
                 self.enemies |= set(self.waves.pop(0))
                 self.player.hp = min(self.player.max_hp, self.player.hp + 1)
-            elif not self.boss_fight_triggered:
+            elif not self.boss_fight_triggered and not self.reset_flag and not self.player.dead:
                 self.boss_fight()
 
         self.last_hype += dt
@@ -340,7 +391,6 @@ class Game(object):
         dt = self.camera.update(dt)
         self.check_global_events(dt)
         self.player.update(dt)
-        self.update_shade(dt)
 
         # Draw stuff
         self.map.draw()
@@ -371,6 +421,9 @@ class Game(object):
             splash.draw()
         if self.shade_alpha:
             self.screen.blit(self.shade, (0, 0))
+        if self.player.dead and not self.reset_flag:
+            self.screen.blit(self.game_over, (self.c.WINDOW_WIDTH // 2 - self.game_over.get_width() // 2,
+                                              self.c.WINDOW_HEIGHT // 2 - self.game_over.get_height() // 2))
         pygame.display.flip()
 
 class Constants(object):

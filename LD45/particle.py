@@ -1,5 +1,6 @@
 import random
 import pygame
+import math
 from helpers import normalize, random_angle_vec, list_addition
 
 class Particle(object):
@@ -71,3 +72,78 @@ class Feather(Particle):
 
         self.since_spawn = 0
         self.game.particles.add(self)
+
+class PlayerBit(Feather):
+
+    def __init__(self, game, pos):
+
+        self.game = game
+        self.x, self.y = pos
+        self.max_speed = 8
+        self.deccel = 0.1
+
+        path = random.choice(["player_bit_1.png", "player_bit_2.png", "player_bit_3.png"])
+        self.sprite = pygame.image.load(path)
+        self.sprite = pygame.transform.rotate(self.sprite, int(random.random() * 360))
+
+        self.speed = random.random() * self.max_speed
+        self.velocity = random_angle_vec()
+        normalize(self.velocity, self.speed)
+
+        self.since_spawn = 0
+        self.game.particles.add(self)
+
+class Confettus(Feather):
+
+    def __init__(self, game, pos):
+
+        self.game = game
+        self.x, self.y = pos
+        self.max_speed = 8
+        self.deccel = 0.1
+
+        path = random.choice([("confettus_%s.png" % str(i+1)) for i in range(10)])
+        self.sprite = pygame.image.load(path)
+        self.sprite = pygame.transform.rotate(self.sprite, int(random.random() * 360))
+
+        self.speed = random.random() * self.max_speed
+        self.velocity = random_angle_vec()
+        normalize(self.velocity, self.speed)
+
+        self.since_spawn = 0
+        self.game.particles.add(self)
+
+class YouWin(Particle):
+
+    def __init__(self, game, pos):
+
+        self.game = game
+        self.x, self.y = pos
+        self.max_speed = 12
+        self.deccel = 0.04
+
+        self.sprite = pygame.image.load("you_win_balloon.png")
+
+        self.speed = self.max_speed
+        self.velocity = [0, -self.max_speed]
+        normalize(self.velocity, self.speed)
+
+        self.since_spawn = 0
+        self.game.particles.add(self)
+
+        self.w = self.sprite.get_width()
+        self.h = self.sprite.get_height()
+
+    def draw(self):
+        camera = self.game.camera
+        scale = camera.scale
+        width = int(self.w * scale)
+        height = int(self.h * scale)
+        scaled = pygame.transform.scale(self.sprite, (width, height))
+        x = int((self.x - camera.x) * scale * self.game.c.TILE_SIZE - width / 2 + self.game.c.WINDOW_WIDTH // 2)
+        y = int((self.y - camera.y + self.offset) * scale * self.game.c.TILE_SIZE - height / 2 + self.game.c.WINDOW_HEIGHT // 2)
+        self.game.screen.blit(scaled, (x, y))
+
+    def update(self, dt):
+        super().update(dt)
+        self.offset = math.sin(self.since_spawn * 4) * 0.25

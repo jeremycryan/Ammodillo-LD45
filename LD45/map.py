@@ -34,14 +34,15 @@ class Tile(object):
         scale = camera.scale
         width = int(self.w * scale)
         height = int(self.h * scale)
-        swidth = int(self.sw * scale)
-        sheight = int(self.sh * scale)
+        swidth = int(self.sw * scale / 1.5)
+        sheight = int(self.sh * scale / 1.5)
         x = int((self.x - camera.x) * scale * self.game.c.TILE_SIZE - width/2 + self.game.c.WINDOW_WIDTH//2)
         y = int((self.y - camera.y) * scale * self.game.c.TILE_SIZE - width/2 + self.game.c.WINDOW_HEIGHT//2)
-        sx = x//2
-        sy = y//2
+        sx = x//3 - (width * scale)//50
+        sy = y//4 + (height*scale)//50
         # if x + width < 0 or y + width < 0 or x > self.game.c.WINDOW_WIDTH or y > self.game.c.WINDOW_HEIGHT:
         #     return
+        self.game.screen.fill((255, 255, 255))
         scaled = pygame.transform.scale(self.sky_sprite, (swidth, sheight))
         self.game.screen.blit(scaled, (sx, sy))
         scaled = pygame.transform.scale(self.sprite, (width, height))
