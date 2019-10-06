@@ -131,23 +131,22 @@ class Game(object):
         self.wave_spawn_gap = 5
         self.last_hype = 0
         king = KingMouse(self)
-        king.hp = 1
         self.king.add(king)
 
         self.waves = []
 
-        # self.waves = [[Chick(self, pos=self.c.CENTER_ARCH)],
-        #
-        #               [Chick(self, pos=self.c.CENTER_ARCH),
-        #                Chick(self, pos=self.c.LEFT_ARCH),
-        #                Chick(self, pos=self.c.RIGHT_ARCH)],
-        #
-        #               [Bursty(self, pos=self.c.CENTER_ARCH)],
-        #
-        #               [Chick(self, pos=(self.c.CENTER_ARCH[0], self.c.CENTER_ARCH[1] + 1)),
-        #                Chick(self, pos=self.c.LEFT_ARCH),
-        #                Chick(self, pos=self.c.RIGHT_ARCH),
-        #                Bursty(self, pos=(self.c.CENTER_ARCH[0], self.c.CENTER_ARCH[1] - 1))]]
+        self.waves = [[Chick(self, pos=self.c.CENTER_ARCH)],
+
+                      [Chick(self, pos=self.c.CENTER_ARCH),
+                       Chick(self, pos=self.c.LEFT_ARCH),
+                       Chick(self, pos=self.c.RIGHT_ARCH)],
+
+                      [Bursty(self, pos=self.c.CENTER_ARCH)],
+
+                      [Chick(self, pos=(self.c.CENTER_ARCH[0], self.c.CENTER_ARCH[1] + 1)),
+                       Chick(self, pos=self.c.LEFT_ARCH),
+                       Chick(self, pos=self.c.RIGHT_ARCH),
+                       Bursty(self, pos=(self.c.CENTER_ARCH[0], self.c.CENTER_ARCH[1] - 1))]]
 
         self.shade = pygame.Surface(self.c.WINDOW_SIZE).convert()
         self.shade.fill((0, 0, 0))
@@ -329,6 +328,9 @@ class Game(object):
 
             timer += dt
             self.update_and_draw_things(dt)
+
+            if not self.enemies:
+                self.last_hype = -1
 
             if self.reset_flag and self.shade_alpha > 250:
                 break
