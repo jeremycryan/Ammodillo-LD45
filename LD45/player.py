@@ -114,7 +114,7 @@ class Player(object):
 
 
     def dodge(self):
-        if self.since_last_dodge < self.dodge_cooldown:
+        if self.since_last_dodge < self.dodge_cooldown or self.stunned():
             return
         if self.velocity[0]**2 + self.velocity[1]**2 > self.min_dodge_threshold**2:
             self.sprite.fps = 18
@@ -237,10 +237,10 @@ class Player(object):
                 self.add_velocity(1, 0, dt)
             if mbuttons[0]:
                 self.shoot_bullet()
-        if keys[pygame.K_UP]:
-            self.game.camera.target_scale *= 2 ** dt
-        if keys[pygame.K_DOWN]:
-            self.game.camera.target_scale *= 0.5 ** dt
+        # if keys[pygame.K_UP]:
+        #     self.game.camera.target_scale *= 2 ** dt
+        # if keys[pygame.K_DOWN]:
+        #     self.game.camera.target_scale *= 0.5 ** dt
 
     def update_velocity_if_dodging(self):
         if self.dodging:

@@ -35,8 +35,6 @@ class Game(object):
 
     def title(self):
         self.reset_things()
-        then = time.time()
-        time.sleep(0.001)
 
         self.camera.focus_mode = True
         start_y = -12
@@ -47,13 +45,33 @@ class Game(object):
         self.camera.true_x = 0
         self.camera.true_y = start_y
 
+        shady_boi = pygame.Surface(self.c.WINDOW_SIZE).convert()
+        shady_boi.fill((0, 0, 0))
+        sb_alpha = 255
+        sb_rate = 200
+
+        end_loop = False
+
+        then = time.time()
+        time.sleep(0.001)
+
         while True:
 
             now = time.time()
             dt = now - then
             then = now
 
-            self.check_for_quit_event()
+            sb_alpha = max(0, sb_alpha - sb_rate * dt)
+            shady_boi.set_alpha(sb_alpha)
+
+            events = self.check_for_quit_event()
+            for event in events:
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_RETURN:
+                        end_loop = True
+
+            if end_loop:
+                break
 
             yoff = math.sin(time.time() * 0.85) * 1.0
             self.camera.target_y = start_y + yoff
@@ -66,6 +84,7 @@ class Game(object):
             for king in self.king:
                 king.update(dt)
                 king.draw()
+            self.screen.blit(shady_boi, (0, 0))
             pygame.display.flip()
 
 
@@ -75,7 +94,9 @@ class Game(object):
         self.particles = set()
         self.mice = set()
         self.king = set()
+        self.player = Player(self)
 
+        self.reset_flag = False
         self.boss_fight_triggered = False
 
         for p in self.c.MOUSE_POSITIONS:
@@ -85,31 +106,35 @@ class Game(object):
         self.last_hype = 0
         self.king.add(KingMouse(self))
 
-        self.waves = [[Chick(self, pos=self.c.CENTER_ARCH)]]
+        # self.waves = [[Chick(self, pos=self.c.CENTER_ARCH)]]
 
-        # self.waves = [[Chick(self, pos=self.c.CENTER_ARCH)],
-        #
-        #               [Chick(self, pos=self.c.CENTER_ARCH),
-        #                Chick(self, pos=self.c.LEFT_ARCH),
-        #                Chick(self, pos=self.c.RIGHT_ARCH)],
-        #
-        #               [Bursty(self, pos=self.c.CENTER_ARCH)],
-        #
-        #               [Chick(self, pos=(self.c.CENTER_ARCH[0], self.c.CENTER_ARCH[1] + 1)),
-        #                Chick(self, pos=self.c.LEFT_ARCH),
-        #                Chick(self, pos=self.c.RIGHT_ARCH),
-        #                Bursty(self, pos=(self.c.CENTER_ARCH[0], self.c.CENTER_ARCH[1] - 1))]]
+        self.waves = [[Chick(self, pos=self.c.CENTER_ARCH)],
+
+                      [Chick(self, pos=self.c.CENTER_ARCH),
+                       Chick(self, pos=self.c.LEFT_ARCH),
+                       Chick(self, pos=self.c.RIGHT_ARCH)],
+
+                      [Bursty(self, pos=self.c.CENTER_ARCH)],
+
+                      [Chick(self, pos=(self.c.CENTER_ARCH[0], self.c.CENTER_ARCH[1] + 1)),
+                       Chick(self, pos=self.c.LEFT_ARCH),
+                       Chick(self, pos=self.c.RIGHT_ARCH),
+                       Bursty(self, pos=(self.c.CENTER_ARCH[0], self.c.CENTER_ARCH[1] - 1))]]
 
         self.shade = pygame.Surface(self.c.WINDOW_SIZE).convert()
         self.shade.fill((0, 0, 0))
         self.shade_alpha = 0
 
     def update_shade(self, dt):
-        rate = 100
+        rate = 150
         end_alpha = 150
-        if self.player.dead:
+        if self.player.dead and not self.reset_flag:
             da = dt * rate
             self.shade_alpha = min(self.shade_alpha + da, end_alpha)
+            self.shade.set_alpha(int(self.shade_alpha))
+        if self.reset_flag:
+            da = dt * rate
+            self.shade_alpha = min(self.shade_alpha + da, 255)
             self.shade.set_alpha(int(self.shade_alpha))
 
     def main(self):
@@ -142,6 +167,9 @@ class Game(object):
             # Do stuff
             dt = self.camera.update(dt)
             self.check_global_events(dt)
+            if self.reset_flag and self.shade_alpha == 255:
+                self.reset_flag = False
+                break
             self.player.update(dt)
             self.update_shade(dt)
 
@@ -269,6 +297,10 @@ class Game(object):
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
+        return events
+
+    def reset(self):
+        self.reset_flag = True
 
     def check_global_events(self, dt):
         events = pygame.event.get()
@@ -281,8 +313,10 @@ class Game(object):
             if event.type == pygame.KEYDOWN:
                 if event.key == self.player.dodge_key:
                     self.player.dodge()
-                if event.key == pygame.K_l:
-                    print("Mouse position: " + str(self.camera.mouse_to_frame(pygame.mouse.get_pos())))
+                if event.key == pygame.K_r or event.key == pygame.K_RETURN:
+                    self.reset()
+                # if event.key == pygame.K_l:
+                #     print("Mouse position: " + str(self.camera.mouse_to_frame(pygame.mouse.get_pos())))
 
         if not self.enemies:
             self.time_without_enemies += dt
@@ -290,6 +324,7 @@ class Game(object):
             self.time_without_enemies = 0
             if len(self.waves):
                 self.enemies |= set(self.waves.pop(0))
+                self.player.hp = min(self.player.max_hp, self.player.hp + 1)
             elif not self.boss_fight_triggered:
                 self.boss_fight()
 
