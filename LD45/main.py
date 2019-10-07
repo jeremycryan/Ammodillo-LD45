@@ -121,6 +121,7 @@ class Game(object):
         self.mice = set()
         self.king = set()
         self.player = Player(self)
+        self.fight_music.set_volume(0.5)
 
         self.reset_flag = False
         self.boss_fight_triggered = False
@@ -137,11 +138,11 @@ class Game(object):
 
         self.waves = [[Chick(self, pos=self.c.CENTER_ARCH)],
 
+                      [Bursty(self, pos=self.c.CENTER_ARCH)],
+
                       [Chick(self, pos=self.c.CENTER_ARCH),
                        Chick(self, pos=self.c.LEFT_ARCH),
                        Chick(self, pos=self.c.RIGHT_ARCH)],
-
-                      [Bursty(self, pos=self.c.CENTER_ARCH)],
 
                       [Chick(self, pos=(self.c.CENTER_ARCH[0], self.c.CENTER_ARCH[1] + 1)),
                        Chick(self, pos=self.c.LEFT_ARCH),
@@ -239,6 +240,9 @@ class Game(object):
                                   self.logo_y - (15 * (self.camera.y - self.cam_start_pos))))
             if self.shade_alpha:
                 self.screen.blit(self.shade, (0, 0))
+            if self.player.dead and not self.reset_flag:
+                self.screen.blit(self.game_over, (self.c.WINDOW_WIDTH // 2 - self.game_over.get_width() // 2,
+                                                  self.c.WINDOW_HEIGHT // 2 - self.game_over.get_height() // 2))
             pygame.display.flip()
 
     def boss_fight(self):
@@ -379,6 +383,7 @@ class Game(object):
                 self.enemies |= set(self.waves.pop(0))
                 self.player.hp = min(self.player.max_hp, self.player.hp + 1)
             elif not self.boss_fight_triggered and not self.reset_flag and not self.player.dead:
+                self.player.hp = min(self.player.max_hp, self.player.hp + 1)
                 self.boss_fight()
 
         self.last_hype += dt
