@@ -32,6 +32,8 @@ class Game(object):
         self.game_over = pygame.transform.scale(self.game_over, (self.game_over.get_width()*3//4, self.game_over.get_height()*3//4))
         self.reset_sound = pygame.mixer.Sound("reset_sound.wav")
         self.reset_sound.set_volume(0.3)
+        self.fish_logo = pygame.transform.scale(pygame.image.load("star_fish.png"), (400, 400))
+
 
         self.c = Constants()
 
@@ -42,7 +44,51 @@ class Game(object):
         self.player = Player(self)
         self.map = Map(self)
 
-        self.reset_things()
+        start = time.time()
+        while True:
+            self.screen.fill((0, 0, 0))
+            pygame.display.flip()
+
+            self.check_for_quit_event()
+            if time.time() - start > 0.25:
+                break
+
+        start = time.time()
+        logo_duration = 3
+        transition = 1
+        end = start + logo_duration
+        self.fish_logo.set_alpha(0)
+        while True:
+            self.check_for_quit_event()
+
+            now = time.time()
+            if now >= end:
+                break
+            elif now >= end - transition:
+                to_end = end - now
+                alpha = 255 * to_end/transition
+                self.fish_logo.set_alpha(int(alpha))
+                print(alpha)
+            elif now >= start + transition:
+                pass
+            else:
+                alpha = 255 * (now - start)/transition
+                self.fish_logo.set_alpha(int(alpha))
+
+            self.screen.fill((0, 0, 0))
+            x = self.c.WINDOW_WIDTH//2 - self.fish_logo.get_width()//2
+            y = self.c.WINDOW_HEIGHT//2 - self.fish_logo.get_height()//2
+            self.screen.blit(self.fish_logo, (x, y))
+            pygame.display.flip()
+
+        start = time.time()
+        while True:
+            self.screen.fill((0, 0, 0))
+            pygame.display.flip()
+
+            self.check_for_quit_event()
+            if time.time() - start > 0.5:
+                break
 
         while True:
             self.title()
